@@ -21,11 +21,6 @@ router.get('/', async (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     supabaseConnected,
     supabaseError: supabaseError || undefined,
-    envCheck: {
-      hasUrl: !!process.env.SUPABASE_URL,
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      urlPrefix: process.env.SUPABASE_URL?.slice(0, 30) || 'MISSING',
-    }
   });
 });
 
