@@ -12,10 +12,10 @@ router.post('/', async (req: Request, res: Response) => {
   const { ideaId, platform } = req.body;
 
   if (!ideaId) {
-    return res.status(400).json({ error: 'ideaId is required' });
+    return res.status(400).json({ error: 'Something went wrong recording your share.' });
   }
   if (!platform || !['twitter', 'linkedin', 'copy_link'].includes(platform)) {
-    return res.status(400).json({ error: 'platform must be "twitter", "linkedin", or "copy_link"' });
+    return res.status(400).json({ error: 'Something went wrong recording your share.' });
   }
 
   try {
@@ -27,7 +27,7 @@ router.post('/', async (req: Request, res: Response) => {
       .single();
 
     if (ideaError || !idea) {
-      return res.status(404).json({ error: 'Idea not found' });
+      return res.status(404).json({ error: 'We couldn\u2019t find that idea.' });
     }
 
     // Record share
@@ -39,7 +39,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     if (shareError) {
-      return res.status(500).json({ error: 'Failed to record share' });
+      return res.status(500).json({ error: 'Share didn\u2019t record but your link still works.' });
     }
 
     // Update shares count in scores
@@ -88,7 +88,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Share error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Share didn\u2019t record but your link still works.' });
   }
 });
 

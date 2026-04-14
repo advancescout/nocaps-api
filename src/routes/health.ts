@@ -16,11 +16,13 @@ router.get('/', async (_req: Request, res: Response) => {
     supabaseError = e instanceof Error ? e.message : String(e);
   }
 
+  // Log internally but never expose error details to clients
+  if (supabaseError) console.error('Health check: Supabase error:', supabaseError);
+
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     supabaseConnected,
-    supabaseError: supabaseError || undefined,
   });
 });
 

@@ -7,7 +7,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   if (!id || Array.isArray(id) || !/^[0-9a-f-]{36}$/i.test(id)) {
-    return res.status(400).json({ error: 'Invalid idea ID' });
+    return res.status(400).json({ error: 'That link doesn\u2019t look right. Double-check the URL and try again.' });
   }
 
   try {
@@ -22,7 +22,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     ]);
 
     if (ideaResult.error || !ideaResult.data) {
-      return res.status(404).json({ error: 'Idea not found' });
+      return res.status(404).json({ error: 'We couldn\u2019t find that analysis. It may have expired or never completed.' });
     }
 
     const idea = ideaResult.data;
@@ -89,7 +89,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Get idea error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'We hit a snag loading your results. Try again in a few seconds.' });
   }
 });
 

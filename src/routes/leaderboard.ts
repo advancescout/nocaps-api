@@ -27,7 +27,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (error) {
       console.error('Leaderboard error:', error);
-      return res.status(500).json({ error: 'Failed to fetch leaderboard' });
+      return res.status(500).json({ error: 'We couldn\u2019t load the leaderboard right now. Give it another go.' });
     }
 
     // Update ranks
@@ -58,7 +58,7 @@ router.get('/', async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Leaderboard error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'We couldn\u2019t load the leaderboard right now. Give it another go.' });
   }
 });
 

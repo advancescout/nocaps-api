@@ -12,10 +12,10 @@ router.post('/', async (req: Request, res: Response) => {
   const { ideaId, voteType } = req.body;
 
   if (!ideaId) {
-    return res.status(400).json({ error: 'ideaId is required' });
+    return res.status(400).json({ error: 'Something went wrong with your vote. Please refresh and try again.' });
   }
   if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
-    return res.status(400).json({ error: 'voteType must be "upvote" or "downvote"' });
+    return res.status(400).json({ error: 'Something went wrong with your vote. Please refresh and try again.' });
   }
 
   try {
@@ -27,7 +27,7 @@ router.post('/', async (req: Request, res: Response) => {
       .single();
 
     if (ideaError || !idea) {
-      return res.status(404).json({ error: 'Idea not found' });
+      return res.status(404).json({ error: 'We couldn\u2019t find that idea. It may have been removed.' });
     }
 
     // Check for existing vote from this IP
@@ -39,7 +39,7 @@ router.post('/', async (req: Request, res: Response) => {
       .single();
 
     if (existingVote) {
-      return res.status(409).json({ error: 'You have already voted on this idea' });
+      return res.status(409).json({ error: 'You\u2019ve already voted on this one.' });
     }
 
     // Insert vote
@@ -50,7 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     if (voteError) {
-      return res.status(500).json({ error: 'Failed to record vote' });
+      return res.status(500).json({ error: 'Vote didn\u2019t go through. Try again.' });
     }
 
     // Update scores
@@ -103,7 +103,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Vote error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Vote didn\u2019t go through. Try again.' });
   }
 });
 

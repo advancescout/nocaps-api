@@ -23,7 +23,7 @@ router.post('/', async (req: Request, res: Response) => {
   // Rate limit check
   if (isRateLimited(userIp)) {
     return res.status(429).json({
-      error: 'Rate limit exceeded. One submission per hour per IP.',
+      error: 'You\u2019ve already submitted recently. Give it an hour and try again.',
     });
   }
 
@@ -37,26 +37,26 @@ router.post('/', async (req: Request, res: Response) => {
     founderExperience,
   } = req.body;
 
-  // Validation
+  // Validation — user-friendly messages, no internal field names
   if (!businessIdea || typeof businessIdea !== 'string') {
-    return res.status(400).json({ error: 'businessIdea is required' });
+    return res.status(400).json({ error: 'Please describe your business idea.' });
   }
   if (!targetDemographic || typeof targetDemographic !== 'string') {
-    return res.status(400).json({ error: 'targetDemographic is required' });
+    return res.status(400).json({ error: 'Please tell us who your target audience is.' });
   }
   if (typeof founderHasFieldExperience !== 'boolean') {
-    return res.status(400).json({ error: 'founderHasFieldExperience must be boolean' });
+    return res.status(400).json({ error: 'Please let us know about your field experience.' });
   }
   if (typeof founderHasShippedBefore !== 'boolean') {
-    return res.status(400).json({ error: 'founderHasShippedBefore must be boolean' });
+    return res.status(400).json({ error: 'Please let us know about your startup experience.' });
   }
   if (!founderExperience || typeof founderExperience !== 'string') {
-    return res.status(400).json({ error: 'founderExperience is required' });
+    return res.status(400).json({ error: 'Please share a bit about your background.' });
   }
 
   const validExpertise = ['novice', 'intermediate', 'expert', 'thought_leader'];
   if (founderExpertise && !validExpertise.includes(founderExpertise)) {
-    return res.status(400).json({ error: 'Invalid founderExpertise value' });
+    return res.status(400).json({ error: 'Please select a valid expertise level.' });
   }
 
   try {
@@ -77,7 +77,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     if (error || !idea) {
       console.error('Insert error:', error);
-      return res.status(500).json({ error: 'Failed to create idea' });
+      return res.status(500).json({ error: 'We couldn\u2019t save your idea. Please try again in a moment.' });
     }
 
     // Set rate limit
@@ -96,7 +96,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('Validate error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Something went wrong on our end. Your idea is safe \u2014 try again shortly.' });
   }
 });
 
