@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../lib/supabase';
 
 const router = Router();
 
-const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
+const BRAVE_API_KEY = process.env.BRAVE_SEARCH_API_KEY || process.env.BRAVE_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const SUBREDDITS = [
@@ -146,10 +146,11 @@ async function synthesizeIdea(thread: ScrapedThread): Promise<{
 Title: ${thread.title}
 Top comments: ${thread.topSnippets.join('\n')}
 
-1. Write a clear specific business idea (2 sentences max).
-2. Target demographic.
-3. Opportunity size: Small/Medium/Large/Huge.
-4. One-line validation reason referencing data.
+This thread describes a recurring problem. Based on the pain point expressed:
+1. Write a clear, specific business idea that solves this problem (2 sentences max)
+2. Define the target demographic (age, context, specific characteristics)
+3. Rate the opportunity size: Small / Medium / Large / Huge
+4. Write a one-line explanation of why this is a validated pain point (reference the upvote/comment data)
 
 Respond as JSON: { "businessIdea": "...", "targetDemographic": "...", "opportunitySize": "...", "validationReason": "..." }`;
 

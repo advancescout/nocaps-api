@@ -5,11 +5,14 @@ import cors from 'cors';
 import healthRouter from './routes/health';
 import generateIdeaRouter from './routes/generateIdea';
 import validateRouter from './routes/validate';
+import validateStreamRouter from './routes/validateStream';
 import ideasRouter from './routes/ideas';
 import leaderboardRouter from './routes/leaderboard';
 import voteRouter from './routes/vote';
 import shareRouter from './routes/share';
 import webhookRouter from './routes/webhook';
+import emailRouter from './routes/email';
+import cronScrapeRedditRouter from './routes/cronScrapeReddit';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,11 +26,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/health', healthRouter);
 app.use('/api/generate-idea', generateIdeaRouter);
 app.use('/api/validate', validateRouter);
+app.use('/api/validate', validateStreamRouter);
 app.use('/api/ideas', ideasRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/vote', voteRouter);
 app.use('/api/share', shareRouter);
 app.use('/api/webhook', webhookRouter);
+app.use('/api/email', emailRouter);
+app.use('/api/cron/scrape-reddit', cronScrapeRedditRouter);
 
 // Root
 app.get('/', (_req, res) => {
