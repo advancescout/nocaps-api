@@ -192,23 +192,12 @@ router.get('/', async (req: Request, res: Response) => {
   console.log('[Cron] Starting Reddit scrape...');
 
   try {
-    // Step 1: Retire ideas older than 90 days
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    await supabaseAdmin
-      .from('reddit_ideas')
-      .update({ is_active: false })
-      .lt('created_at', ninetyDaysAgo.toISOString())
-      .eq('is_active', true);
-
-    // Step 2: Count active ideas
+    // Step 1: Count existing reddit_ideas
     const { count: activeCount } = await supabaseAdmin
       .from('reddit_ideas')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true);
+      .select('*', { count: 'exact', head: true });
 
-    console.log(`[Cron] Active ideas: ${activeCount ?? 0}`);
+    console.log(`[Cron] Existing ideas: ${activeCount ?? 0}`);
 
     // Step 3: Scrape subreddits
     const allThreads: ScrapedThread[] = [];
@@ -232,9 +221,9 @@ router.get('/', async (req: Request, res: Response) => {
     // Step 4: Deduplicate against existing ideas by URL
     const { data: existingUrls } = await supabaseAdmin
       .from('reddit_ideas')
-      .select('source_url');
+      .select('post_url');
 
-    const urlSet = new Set((existingUrls ?? []).map((r: { source_url: string }) => r.source_url));
+    const urlSet = new Set((existingUrls ?? []).map((r: { post_url: string }) => r.post_url));
     const newThreads = allThreads.filter(t => !urlSet.has(t.url));
 
     console.log(`[Cron] New threads after dedup: ${newThreads.length}`);
@@ -245,20 +234,36 @@ router.get('/', async (req: Request, res: Response) => {
       const idea = await synthesizeIdea(thread);
       if (!idea) continue;
 
-      const { error: insertErr } = await supabaseAdmin
-        .from('reddit_ideas')
+      // Insert the idea into the ideas table first
+      const { data: ideaRow, error: ideaInsertErr } = await supabaseAdmin
+        .from('ideas')
         .insert({
           business_idea: idea.businessIdea,
           target_demographic: idea.targetDemographic,
-          opportunity_size: idea.opportunitySize,
-          opportunity_size_label: idea.opportunitySize,
-          validation_reason: idea.validationReason,
-          source_url: thread.url,
-          source_subreddit: thread.subreddit,
-          source_upvotes: thread.upvoteCount,
-          source_comments: thread.commentCount,
-          source_title: thread.title,
-          is_active: true,
+          founder_has_field_experience: false,
+          founder_has_shipped_before: false,
+          founder_experience: 'Auto-generated from Reddit scrape.',
+          user_ip: '127.0.0.1',
+        })
+        .select('id')
+        .single();
+
+      if (ideaInsertErr || !ideaRow) {
+        console.error('[Cron] Idea insert error:', ideaInsertErr?.message);
+        continue;
+      }
+
+      // Then insert the reddit metadata linked to that idea
+      const { error: insertErr } = await supabaseAdmin
+        .from('reddit_ideas')
+        .insert({
+          idea_id: ideaRow.id,
+          subreddit: thread.subreddit,
+          post_title: thread.title,
+          post_url: thread.url,
+          upvotes: thread.upvoteCount,
+          comment_count: thread.commentCount,
+          validation_score: thread.upvoteCount / 100,
         });
 
       if (insertErr) {
@@ -271,11 +276,10 @@ router.get('/', async (req: Request, res: Response) => {
       await new Promise(r => setTimeout(r, 300));
     }
 
-    // Recount active
+    // Recount total
     const { count: finalCount } = await supabaseAdmin
       .from('reddit_ideas')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true);
+      .select('*', { count: 'exact', head: true });
 
     console.log(`[Cron] Done. Synthesized: ${synthesized}, Active: ${finalCount ?? 0}`);
 

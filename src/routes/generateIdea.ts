@@ -29,65 +29,62 @@ async function triggerInlineScrape(): Promise<void> {
   }
 }
 
-function formatRedditIdea(idea: Record<string, unknown>) {
+function opportunityLabel(upvotes: number): string {
+  if (upvotes >= 4000) return 'Huge';
+  if (upvotes >= 2000) return 'Large';
+  if (upvotes >= 800) return 'Medium';
+  return 'Small';
+}
+
+function formatJoinedIdea(ri: Record<string, unknown>, idea: Record<string, unknown>) {
+  const upvotes = (ri.upvotes as number) ?? 0;
+  const comments = (ri.comment_count as number) ?? 0;
   return {
-    id: idea.id,
+    id: ri.id,
     businessIdea: idea.business_idea,
     targetDemographic: idea.target_demographic,
-    opportunitySizeLabel: idea.opportunity_size_label ?? idea.opportunity_size ?? null,
-    freshnessLabel: idea.freshness_label ?? null,
-    sourceSubreddit: idea.source_subreddit ?? null,
-    sourceUpvotes: idea.source_upvotes ?? null,
-    sourceComments: idea.source_comments ?? null,
-    validationReason: idea.validation_reason ?? null,
-    sourceTitle: idea.source_title ?? null,
+    opportunitySizeLabel: opportunityLabel(upvotes),
+    freshnessLabel: null,
+    sourceSubreddit: ri.subreddit ?? null,
+    sourceUpvotes: upvotes,
+    sourceComments: comments,
+    validationReason: `${upvotes.toLocaleString()} upvotes and ${comments} comments signal validated community demand.`,
+    sourceTitle: ri.post_title ?? null,
   };
 }
 
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    // Count active reddit_ideas
-    const { count: activeCount } = await supabaseAdmin
+    // Count reddit_ideas rows
+    const { count: totalCount } = await supabaseAdmin
       .from('reddit_ideas')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true);
+      .select('*', { count: 'exact', head: true });
 
-    // If <5 active ideas, trigger inline scrape (fire-and-forget)
-    if (!activeCount || activeCount < 5) {
+    // If <5 ideas, trigger inline scrape (fire-and-forget)
+    if (!totalCount || totalCount < 5) {
       triggerInlineScrape();
     }
 
-    // Serve from reddit_ideas if any exist
-    if (activeCount && activeCount > 0) {
-      const randomOffset = Math.floor(Math.random() * activeCount);
+    // Serve from reddit_ideas joined with ideas
+    if (totalCount && totalCount > 0) {
+      const randomOffset = Math.floor(Math.random() * totalCount);
       const { data, error } = await supabaseAdmin
         .from('reddit_ideas')
-        .select('*')
-        .eq('is_active', true)
+        .select('*, ideas(business_idea, target_demographic)')
         .range(randomOffset, randomOffset);
 
       if (!error && data && data.length > 0) {
-        return res.json(formatRedditIdea(data[0]));
+        const row = data[0] as Record<string, unknown>;
+        const idea = (row.ideas ?? {}) as Record<string, unknown>;
+        return res.json(formatJoinedIdea(row, idea));
       }
     }
 
-    // Graceful degradation: serve most recently scraped ideas even if inactive
-    const { data: recentIdeas } = await supabaseAdmin
-      .from('reddit_ideas')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (recentIdeas && recentIdeas.length > 0) {
-      const randomIdx = Math.floor(Math.random() * recentIdeas.length);
-      return res.json(formatRedditIdea(recentIdeas[randomIdx]));
-    }
-
-    // No reddit_ideas at all — return empty (never serve fake static list)
+    // No reddit_ideas at all — return empty
     return res.json({ empty: true });
   } catch (err) {
     console.error('Generate idea error:', err);
-    return res.status(500).json({ error: 'We couldn\u2019t pull an idea right now. Hit spin again.' });
+    return res.status(500).json({ error: "We couldn't pull an idea right now. Hit spin again." });
   }
 });
 
