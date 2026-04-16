@@ -292,6 +292,18 @@ export async function runAnalysis(
           if (step.number === 3) {
             await supabaseAdmin.from('idea_scores').update({ competitive_score: 0.5 }).eq('idea_id', ideaId);
           }
+          if (step.number === 6) {
+            // Persist reddit_validation score from the Reddit step
+            const rating = (parsedResponse as any).overallRating;
+            const redditScore = rating === 'Strong' ? 1.0 : rating === 'Moderate' ? 0.5 : 0.2;
+            await supabaseAdmin.from('idea_scores').update({ reddit_validation: redditScore }).eq('idea_id', ideaId);
+          }
+          if (step.number === 19) {
+            // Persist internal_score from the verdict's overallScore (1-10 -> 0-1)
+            const overallScore = Number((parsedResponse as any).overallScore) || 5;
+            const internalScore = Math.min(1, Math.max(0, overallScore / 10));
+            await supabaseAdmin.from('idea_scores').update({ internal_score: internalScore }).eq('idea_id', ideaId);
+          }
 
           return; // success
         } catch (err) {
@@ -358,10 +370,11 @@ export async function runAnalysis(
 
     if (scores) {
       const leaderboardScore =
-        scores.meta_ads_conversions * 0.40 +
-        (scores.upvotes - scores.downvotes) * 0.30 +
-        scores.shares * 0.20 +
-        scores.reddit_validation * 0.10;
+        (scores.meta_ads_conversions || 0) * 0.35 +
+        ((scores.upvotes || 0) - (scores.downvotes || 0)) * 0.25 +
+        (scores.shares || 0) * 0.15 +
+        (scores.reddit_validation || 0) * 0.10 +
+        (scores.internal_score || 0) * 0.15;
 
       await supabaseAdmin
         .from('idea_scores')

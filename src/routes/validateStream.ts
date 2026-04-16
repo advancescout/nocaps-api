@@ -84,6 +84,8 @@ router.post('/stream', async (req: Request, res: Response) => {
   }
 
   const founderPayload = founder as FounderPayload;
+  let clientConnected = true;
+  req.on('close', () => { clientConnected = false; });
 
   try {
     const { data: idea, error } = await supabaseAdmin
@@ -113,6 +115,7 @@ router.post('/stream', async (req: Request, res: Response) => {
     const stepStartTimes = new Map<number, number>();
 
     const onStep = (step: StepResult) => {
+      if (!clientConnected) return;
       const now = Date.now();
       const startedAt = stepStartTimes.get(step.stepNumber) ?? now;
       const durationMs = now - startedAt;
@@ -123,46 +126,59 @@ router.post('/stream', async (req: Request, res: Response) => {
         response: JSON.stringify(step.response).slice(0, 500),
         durationMs,
       };
-      sendEvent(res, event);
+      try { sendEvent(res, event); } catch { clientConnected = false; }
       stepStartTimes.set(step.stepNumber + 1, Date.now());
     };
 
     stepStartTimes.set(2, Date.now());
 
     const onStepError = (step: { stepNumber: number; stepName: string }) => {
+      if (!clientConnected) return;
       const errorEvent: SSEStepErrorEvent = {
         type: 'step_error',
         stepNumber: step.stepNumber,
         stepName: step.stepName,
       };
-      sendEvent(res, errorEvent);
+      try { sendEvent(res, errorEvent); } catch { clientConnected = false; }
     };
 
     await runAnalysis(idea.id, onStep, onStepError);
 
-    const credibility = calculateFounderCredibility(
-      idea.founder_has_field_experience,
-      idea.founder_years_in_field,
-      idea.founder_expertise,
-      idea.founder_has_shipped_before
-    );
+    if (clientConnected) {
+      const credibility = calculateFounderCredibility(
+        idea.founder_has_field_experience,
+        idea.founder_years_in_field,
+        idea.founder_expertise,
+        idea.founder_has_shipped_before
+      );
 
-    const finalScore = credibility.credibility;
-    const resultsToken = idea.id;
+      const finalScore = credibility.credibility;
+      const resultsToken = idea.id;
 
-    const doneEvent: DoneEvent = {
-      type: 'done',
-      ideaId: idea.id,
-      resultsToken,
-      finalScore,
-    };
+      const doneEvent: DoneEvent = {
+        type: 'done',
+        ideaId: idea.id,
+        resultsToken,
+        finalScore,
+      };
 
-    sendEvent(res, doneEvent);
-    res.end();
+      try {
+        sendEvent(res, doneEvent);
+        res.end();
+      } catch {
+        // Client already gone, analysis still completed
+      }
+    }
   } catch (err) {
     console.error('validate/stream error:', err);
-    sendEvent(res, { type: 'error', message: 'Something went sideways during analysis. Your idea is saved \u2014 give it another go.' });
-    res.end();
+    if (clientConnected) {
+      try {
+        sendEvent(res, { type: 'error', message: 'Something went sideways during analysis. Your idea is saved \u2014 give it another go.' });
+        res.end();
+      } catch {
+        // Client already gone
+      }
+    }
   }
 });
 
