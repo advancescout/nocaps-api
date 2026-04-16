@@ -29,9 +29,9 @@ router.get('/:id', async (req: Request, res: Response) => {
     const analysisResults = analysisResult.data || [];
     const scores = scoresResult.data || null;
 
-    // Determine status
+    // Determine status — count steps that have completed_at OR a response
     const completedSteps = analysisResults.filter(
-      (r: { completed_at: string | null }) => r.completed_at
+      (r: { completed_at: string | null; response: unknown }) => r.completed_at || r.response
     ).length;
     const status = completedSteps > 0 ? 'complete' : 'processing';
 
