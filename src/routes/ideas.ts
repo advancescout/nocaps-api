@@ -33,14 +33,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const completedSteps = analysisResults.filter(
       (r: { completed_at: string | null }) => r.completed_at
     ).length;
-    let status: string;
-    if (completedSteps === 0) {
-      status = 'processing';
-    } else if (completedSteps < 18) {
-      status = `processing (${completedSteps}/18 steps)`;
-    } else {
-      status = 'complete';
-    }
+    const status = completedSteps > 0 ? 'complete' : 'processing';
 
     return res.json({
       idea: {
