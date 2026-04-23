@@ -57,8 +57,8 @@ router.post('/stream', async (req: Request, res: Response) => {
     req.socket.remoteAddress ||
     'unknown';
 
-  // Rate limit check
-  if (isRateLimited(userIp)) {
+  // Rate limit check (bypass with BYPASS_RATE_LIMIT=true for dev/testing)
+  if (process.env.BYPASS_RATE_LIMIT !== 'true' && isRateLimited(userIp)) {
     sendEvent(res, {
       type: 'error',
       message: 'You\u2019ve already submitted recently. Give it an hour and try again.',
