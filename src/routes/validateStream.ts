@@ -123,7 +123,7 @@ router.post('/stream', async (req: Request, res: Response) => {
         type: 'step',
         stepNumber: step.stepNumber,
         stepName: step.stepName,
-        response: JSON.stringify(step.response).slice(0, 500),
+        response: JSON.stringify(step.response),
         durationMs,
       };
       try { sendEvent(res, event); } catch { clientConnected = false; }
