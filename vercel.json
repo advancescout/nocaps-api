@@ -3,10 +3,7 @@
   "builds": [
     {
       "src": "src/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "maxDuration": 800
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -15,6 +12,11 @@
       "dest": "src/index.ts"
     }
   ],
+  "functions": {
+    "src/index.ts": {
+      "maxDuration": 800
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/scrape-reddit",
