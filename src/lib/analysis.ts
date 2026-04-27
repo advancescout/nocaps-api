@@ -15,6 +15,8 @@ async function searchReddit(query: string): Promise<string> {
   }
   try {
     const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=10`;
+    console.log('[brave-debug] query:', query);
+    console.log('[brave-debug] chars:', query.length, '| words:', query.split(/\s+/).length);
     const response = await fetch(url, {
       headers: {
         Accept: 'application/json',
@@ -23,7 +25,8 @@ async function searchReddit(query: string): Promise<string> {
       },
     });
     if (!response.ok) {
-      console.error('Brave search error:', response.status, response.statusText);
+      const body = await response.text();
+      console.error(`[brave-debug] error status: ${response.status} ${response.statusText} | body: ${body}`);
       return 'No Reddit results found';
     }
     const data = (await response.json()) as any;
