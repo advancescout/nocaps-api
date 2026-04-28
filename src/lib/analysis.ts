@@ -141,23 +141,38 @@ Return as JSON with fields: overallScore (1-10), dimensions ({marketOpportunity,
 
 const HAIKU_STEPS = new Set([8, 17, 18]);
 
+const ANTHROPIC_STEP_TIMEOUT_MS = 60_000;
+
 async function callClaude(prompt: string, stepNumber?: number): Promise<{ content: string; tokensUsed: number }> {
   const model = (stepNumber !== undefined && HAIKU_STEPS.has(stepNumber)) ? 'claude-haiku-4-5' : 'claude-sonnet-4-6';
-  const response = await anthropic.messages.create({
-    model,
-    max_tokens: 4096,
-    messages: [
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+    console.error(`[step-debug] step ${stepNumber ?? '?'} anthropic timeout after ${ANTHROPIC_STEP_TIMEOUT_MS}ms`);
+  }, ANTHROPIC_STEP_TIMEOUT_MS);
+
+  try {
+    const response = await anthropic.messages.create(
       {
-        role: 'user',
-        content: prompt + '\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, just the JSON object.',
+        model,
+        max_tokens: 4096,
+        messages: [
+          {
+            role: 'user',
+            content: prompt + '\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, just the JSON object.',
+          },
+        ],
       },
-    ],
-  });
+      { signal: controller.signal },
+    );
 
-  const content = response.content[0].type === 'text' ? response.content[0].text : '';
-  const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
-
-  return { content, tokensUsed };
+    const content = response.content[0].type === 'text' ? response.content[0].text : '';
+    const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+    return { content, tokensUsed };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseJsonSafe(text: string): Record<string, unknown> {
@@ -264,6 +279,7 @@ export async function runAnalysis(
         const startedAt = Date.now();
         try {
           const prompt = await Promise.resolve(step.prompt(idea as IdeaData, completedSteps));
+          console.log(`[step-debug] step ${stepNum} starting: ${step.name} (attempt ${attempt}/${MAX_RETRIES}, prompt: ${prompt.length} chars)`);
           const { content, tokensUsed } = await callClaude(prompt, step.number);
           const parsedResponse = parseJsonSafe(content);
           const durationMs = Date.now() - startedAt;
@@ -286,6 +302,7 @@ export async function runAnalysis(
           };
 
           completedSteps.push(stepResult);
+          console.log(`[step-debug] step ${stepNum} completed in ${durationMs}ms`);
 
           if (onStep) {
             try { onStep(stepResult); } catch (e) { console.error('onStep callback error:', e); }
@@ -312,6 +329,11 @@ export async function runAnalysis(
 
           return; // success
         } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            // Timeout — already logged in callClaude; surface step context then fail fast
+            console.error(`[step-debug] step ${stepNum} timed out (${step.name}), not retrying`);
+            throw err;
+          }
           lastError = err;
           console.error(`Step ${stepNum} attempt ${attempt}/${MAX_RETRIES} failed for idea ${ideaId}:`, err);
           if (attempt < MAX_RETRIES) {

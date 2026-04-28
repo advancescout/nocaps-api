@@ -72,9 +72,17 @@ router.post('/stream', async (req: Request, res: Response) => {
     sendEvent(res, { type: 'error', message: 'Please describe your business idea.' });
     return res.end();
   }
+  if (businessIdea.length > 200) {
+    sendEvent(res, { type: 'error', message: 'Description must be 200 characters or fewer.' });
+    return res.end();
+  }
 
   if (!targetDemographic || typeof targetDemographic !== 'string') {
     sendEvent(res, { type: 'error', message: 'Please tell us who your target audience is.' });
+    return res.end();
+  }
+  if (targetDemographic.length > 150) {
+    sendEvent(res, { type: 'error', message: 'Audience must be 150 characters or fewer.' });
     return res.end();
   }
 
