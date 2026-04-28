@@ -74,7 +74,9 @@ const STEPS: Array<{ number: number; name: string; prompt: PromptFn }> = [
     number: 6,
     name: 'reddit_validation',
     prompt: async (idea: IdeaData) => {
-      const query = `site:reddit.com ${idea.business_idea} ${idea.target_demographic}`;
+      const safeIdea = idea.business_idea.slice(0, 200);
+      const safeDemographic = idea.target_demographic.slice(0, 150);
+      const query = `site:reddit.com ${safeIdea} ${safeDemographic}`;
       const results = await searchReddit(query);
       return `Based on the following Reddit search results for "${idea.business_idea}" targeting "${idea.target_demographic}":\n\n${results}\n\nSynthesise and return:\n- The top 3 most relevant communities or forums where this problem is discussed\n- A sentiment summary: is the problem widely acknowledged? (positive signal / mixed / sceptical)\n- 2-3 specific discussion themes or pain points that validate or challenge the idea\n- An overall Reddit Signal rating: Strong / Moderate / Weak\n\nReturn as JSON with fields: communities (array of {name, url, relevance}), sentiment ("positive_signal" | "mixed" | "sceptical"), themes (array of {theme, description, validatesOrChallenges}), overallRating ("Strong" | "Moderate" | "Weak"), summary (1-2 sentence plain English summary).\n\nIf no relevant results were found, return overallRating: "Weak" and explain in summary.\n\nIMPORTANT: Respond ONLY with valid JSON.`;
     },

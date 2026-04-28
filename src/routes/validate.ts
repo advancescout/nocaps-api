@@ -41,8 +41,14 @@ router.post('/', async (req: Request, res: Response) => {
   if (!businessIdea || typeof businessIdea !== 'string') {
     return res.status(400).json({ error: 'Please describe your business idea.' });
   }
+  if (businessIdea.length > 200) {
+    return res.status(400).json({ error: 'Description must be 200 characters or fewer.' });
+  }
   if (!targetDemographic || typeof targetDemographic !== 'string') {
     return res.status(400).json({ error: 'Please tell us who your target audience is.' });
+  }
+  if (targetDemographic.length > 150) {
+    return res.status(400).json({ error: 'Audience must be 150 characters or fewer.' });
   }
   if (typeof founderHasFieldExperience !== 'boolean') {
     return res.status(400).json({ error: 'Please let us know about your field experience.' });
