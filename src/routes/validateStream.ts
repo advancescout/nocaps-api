@@ -49,8 +49,28 @@ function sendEvent(res: Response, data: unknown) {
 
 router.post('/stream', async (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  // Keepalive: send SSE comment every 15s to prevent edge proxy idle timeout
+  function cleanup() {
+    if (keepaliveTimer !== null) {
+      clearInterval(keepaliveTimer);
+      keepaliveTimer = null;
+    }
+  }
+
+  let keepaliveTimer: ReturnType<typeof setInterval> | null = setInterval(() => {
+    try {
+      if (!res.writableEnded) {
+        res.write(': ping\n\n');
+      }
+    } catch {
+      cleanup();
+    }
+  }, 15000);
 
   const userIp =
     (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
@@ -63,37 +83,40 @@ router.post('/stream', async (req: Request, res: Response) => {
       type: 'error',
       message: 'You\u2019ve already submitted recently. Give it an hour and try again.',
     });
-    return res.end();
+    return;
   }
 
   const { businessIdea, targetDemographic, founder, turnstileToken } = req.body;
 
   if (!businessIdea || typeof businessIdea !== 'string') {
     sendEvent(res, { type: 'error', message: 'Please describe your business idea.' });
-    return res.end();
+    return;
   }
   if (businessIdea.length > 200) {
     sendEvent(res, { type: 'error', message: 'Description must be 200 characters or fewer.' });
-    return res.end();
+    return;
   }
 
   if (!targetDemographic || typeof targetDemographic !== 'string') {
     sendEvent(res, { type: 'error', message: 'Please tell us who your target audience is.' });
-    return res.end();
+    return;
   }
   if (targetDemographic.length > 150) {
     sendEvent(res, { type: 'error', message: 'Audience must be 150 characters or fewer.' });
-    return res.end();
+    return;
   }
 
   if (!founder || typeof founder !== 'object') {
     sendEvent(res, { type: 'error', message: 'Please fill in your founder details.' });
-    return res.end();
+    return;
   }
 
   const founderPayload = founder as FounderPayload;
   let clientConnected = true;
-  req.on('close', () => { clientConnected = false; });
+  req.on('close', () => {
+    clientConnected = false;
+    cleanup();
+  });
 
   try {
     const { data: idea, error } = await supabaseAdmin
@@ -114,7 +137,7 @@ router.post('/stream', async (req: Request, res: Response) => {
     if (error || !idea) {
       console.error('Insert error (stream):', error);
       sendEvent(res, { type: 'error', message: 'We couldn\u2019t save your idea. Please try again in a moment.' });
-      return res.end();
+      return;
     }
 
     // Set rate limit
@@ -172,7 +195,6 @@ router.post('/stream', async (req: Request, res: Response) => {
 
       try {
         sendEvent(res, doneEvent);
-        res.end();
       } catch {
         // Client already gone, analysis still completed
       }
@@ -182,11 +204,13 @@ router.post('/stream', async (req: Request, res: Response) => {
     if (clientConnected) {
       try {
         sendEvent(res, { type: 'error', message: 'Something went sideways during analysis. Your idea is saved \u2014 give it another go.' });
-        res.end();
       } catch {
         // Client already gone
       }
     }
+  } finally {
+    cleanup();
+    if (!res.writableEnded) res.end();
   }
 });
 
