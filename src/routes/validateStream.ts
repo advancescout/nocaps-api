@@ -5,6 +5,16 @@ import { calculateFounderCredibility } from '../lib/credibility';
 
 const router = Router();
 
+// Debug helpers — _getActiveHandles/_getActiveRequests are undocumented Node internals,
+// widely used for exactly this kind of serverless event-loop debugging.
+const proc = process as NodeJS.Process & {
+  _getActiveHandles: () => unknown[];
+  _getActiveRequests: () => unknown[];
+};
+function dbg() {
+  return `handles=${proc._getActiveHandles().length} requests=${proc._getActiveRequests().length}`;
+}
+
 interface FounderPayload {
   yearsInField: number;
   selfAssessedExpertise: 'novice' | 'intermediate' | 'expert' | 'thought_leader';
@@ -59,6 +69,9 @@ router.post('/stream', async (req: Request, res: Response) => {
     if (keepaliveTimer !== null) {
       clearInterval(keepaliveTimer);
       keepaliveTimer = null;
+      console.log(`[cleanup-debug] cleanup() called, interval cleared | ${dbg()}`);
+    } else {
+      console.log(`[cleanup-debug] cleanup() called but interval was already null | ${dbg()}`);
     }
   }
 
@@ -114,6 +127,7 @@ router.post('/stream', async (req: Request, res: Response) => {
   const founderPayload = founder as FounderPayload;
   let clientConnected = true;
   req.on('close', () => {
+    console.log(`[cleanup-debug] req close event fired | ${dbg()}`);
     clientConnected = false;
     cleanup();
   });
@@ -174,6 +188,7 @@ router.post('/stream', async (req: Request, res: Response) => {
     };
 
     await runAnalysis(idea.id, onStep, onStepError);
+    console.log(`[cleanup-debug] runAnalysis returned cleanly | ${dbg()}`);
 
     if (clientConnected) {
       const credibility = calculateFounderCredibility(
@@ -195,8 +210,10 @@ router.post('/stream', async (req: Request, res: Response) => {
 
       try {
         sendEvent(res, doneEvent);
+        console.log(`[cleanup-debug] sendEvent doneEvent called | ${dbg()}`);
       } catch {
         // Client already gone, analysis still completed
+        console.log(`[cleanup-debug] sendEvent doneEvent threw \u2014 client already gone | ${dbg()}`);
       }
     }
   } catch (err) {
@@ -209,8 +226,14 @@ router.post('/stream', async (req: Request, res: Response) => {
       }
     }
   } finally {
+    console.log(`[cleanup-debug] finally block reached, writableEnded=${res.writableEnded} | ${dbg()}`);
     cleanup();
-    if (!res.writableEnded) res.end();
+    if (!res.writableEnded) {
+      res.end();
+      console.log(`[cleanup-debug] res.end() returning | ${dbg()}`);
+    } else {
+      console.log(`[cleanup-debug] res already ended, skipping res.end() | ${dbg()}`);
+    }
   }
 });
 
