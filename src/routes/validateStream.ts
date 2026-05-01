@@ -12,7 +12,9 @@ const proc = process as NodeJS.Process & {
   _getActiveRequests: () => unknown[];
 };
 function dbg() {
-  return `handles=${proc._getActiveHandles().length} requests=${proc._getActiveRequests().length}`;
+  const handles = proc._getActiveHandles().map((h: any) => h?.constructor?.name ?? 'unknown');
+  const requests = proc._getActiveRequests().map((h: any) => h?.constructor?.name ?? 'unknown');
+  return `handles=${handles.length}[${handles.join(',')}] requests=${requests.length}[${requests.join(',')}]`;
 }
 
 interface FounderPayload {
