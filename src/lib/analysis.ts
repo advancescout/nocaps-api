@@ -139,8 +139,60 @@ Return as JSON with fields: overallScore (1-10), dimensions ({marketOpportunity,
 
 const HAIKU_STEPS = new Set([8, 17, 18]);
 
+const INVESTIGATE_STEPS = new Set([11, 14]);
+const ANTHROPIC_STEP_TIMEOUT_MS = 60_000;
+
 async function callClaude(prompt: string, stepNumber?: number): Promise<{ content: string; tokensUsed: number }> {
   const model = (stepNumber !== undefined && HAIKU_STEPS.has(stepNumber)) ? 'claude-haiku-4-5' : 'claude-sonnet-4-6';
+  const isInvestigated = stepNumber !== undefined && INVESTIGATE_STEPS.has(stepNumber);
+
+  if (isInvestigated) {
+    // --- DIAGNOSTIC: streaming for steps 11/14 only ---
+    const sendTs = Date.now();
+    console.log(`[step-investigation] step ${stepNumber} sending request at ${sendTs} (model: ${model}, prompt: ${prompt.length} chars)`);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+      console.log(`[step-investigation] step ${stepNumber} aborted after ${ANTHROPIC_STEP_TIMEOUT_MS}ms (+${Date.now() - sendTs}ms)`);
+    }, ANTHROPIC_STEP_TIMEOUT_MS);
+
+    try {
+      const stream = anthropic.messages.stream(
+        {
+          model,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: 'user',
+              content: prompt + '\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, just the JSON object.',
+            },
+          ],
+        },
+        { signal: controller.signal },
+      );
+
+      let firstChunkLogged = false;
+      stream.on('text', () => {
+        if (!firstChunkLogged) {
+          firstChunkLogged = true;
+          console.log(`[step-investigation] step ${stepNumber} first chunk received at ${Date.now()} (+${Date.now() - sendTs}ms)`);
+        }
+      });
+
+      const response = await stream.finalMessage();
+      const completeTs = Date.now();
+      console.log(`[step-investigation] step ${stepNumber} completed at ${completeTs} (+${completeTs - sendTs}ms)`);
+
+      const content = response.content[0].type === 'text' ? response.content[0].text : '';
+      const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+      return { content, tokensUsed };
+    } finally {
+      clearTimeout(timer);
+    }
+    // --- END DIAGNOSTIC ---
+  }
+
   const response = await anthropic.messages.create({
     model,
     max_tokens: 4096,
