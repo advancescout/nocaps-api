@@ -1,4 +1,6 @@
+import http from 'http';
 import { Router, Request, Response } from 'express';
+import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '../lib/supabase';
 import { runAnalysis, StepResult } from '../lib/analysis';
 import { calculateFounderCredibility } from '../lib/credibility';
@@ -126,10 +128,14 @@ router.post('/stream', async (req: Request, res: Response) => {
     return;
   }
 
+  // Per-request agent: avoids destroyed-agent risk on warm Vercel instances that could handle concurrent requests if module-level agent were destroyed in finally.
+  const httpAgent = new http.Agent({ keepAlive: true, timeout: 60_000 });
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, httpAgent });
+
   const founderPayload = founder as FounderPayload;
   let clientConnected = true;
-  req.on('close', () => {
-    console.log(`[cleanup-debug] req close event fired | ${dbg()}`);
+  res.on('close', () => {
+    console.log(`[cleanup-debug] res close event fired | ${dbg()}`);
     clientConnected = false;
     cleanup();
   });
@@ -189,7 +195,7 @@ router.post('/stream', async (req: Request, res: Response) => {
       try { sendEvent(res, errorEvent); } catch { clientConnected = false; }
     };
 
-    await runAnalysis(idea.id, onStep, onStepError);
+    await runAnalysis(idea.id, onStep, onStepError, anthropic);
     console.log(`[cleanup-debug] runAnalysis returned cleanly | ${dbg()}`);
 
     if (clientConnected) {
@@ -235,6 +241,12 @@ router.post('/stream', async (req: Request, res: Response) => {
       console.log(`[cleanup-debug] res.end() returning | ${dbg()}`);
     } else {
       console.log(`[cleanup-debug] res already ended, skipping res.end() | ${dbg()}`);
+    }
+    try {
+      httpAgent.destroy();
+      console.log(`[cleanup-debug] httpAgent destroyed | ${dbg()}`);
+    } catch (agentErr) {
+      console.log(`[cleanup-debug] httpAgent.destroy() threw: ${agentErr} | ${dbg()}`);
     }
   }
 });

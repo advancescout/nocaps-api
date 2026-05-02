@@ -143,7 +143,7 @@ const HAIKU_STEPS = new Set([8, 17, 18]);
 
 const ANTHROPIC_STEP_TIMEOUT_MS = 60_000;
 
-async function callClaude(prompt: string, stepNumber?: number): Promise<{ content: string; tokensUsed: number }> {
+async function callClaude(prompt: string, stepNumber?: number, anthropicClient?: Anthropic): Promise<{ content: string; tokensUsed: number }> {
   const model = (stepNumber !== undefined && HAIKU_STEPS.has(stepNumber)) ? 'claude-haiku-4-5' : 'claude-sonnet-4-6';
 
   const controller = new AbortController();
@@ -153,7 +153,8 @@ async function callClaude(prompt: string, stepNumber?: number): Promise<{ conten
   }, ANTHROPIC_STEP_TIMEOUT_MS);
 
   try {
-    const response = await anthropic.messages.create(
+    const client = anthropicClient || anthropic;
+    const response = await client.messages.create(
       {
         model,
         max_tokens: 4096,
@@ -196,7 +197,8 @@ function parseJsonSafe(text: string): Record<string, unknown> {
 export async function runAnalysis(
   ideaId: string,
   onStep?: (step: StepResult) => void,
-  onStepError?: (step: { stepNumber: number; stepName: string }) => void
+  onStepError?: (step: { stepNumber: number; stepName: string }) => void,
+  anthropicClient?: Anthropic
 ): Promise<void> {
   try {
     // Fetch idea
@@ -280,7 +282,7 @@ export async function runAnalysis(
         try {
           const prompt = await Promise.resolve(step.prompt(idea as IdeaData, completedSteps));
           console.log(`[step-debug] step ${stepNum} starting: ${step.name} (attempt ${attempt}/${MAX_RETRIES}, prompt: ${prompt.length} chars)`);
-          const { content, tokensUsed } = await callClaude(prompt, step.number);
+          const { content, tokensUsed } = await callClaude(prompt, step.number, anthropicClient);
           const parsedResponse = parseJsonSafe(content);
           const durationMs = Date.now() - startedAt;
 
