@@ -1,4 +1,4 @@
-import http from 'http';
+import https from 'https';
 import { Router, Request, Response } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '../lib/supabase';
@@ -129,7 +129,7 @@ router.post('/stream', async (req: Request, res: Response) => {
   }
 
   // Per-request agent: avoids destroyed-agent risk on warm Vercel instances that could handle concurrent requests if module-level agent were destroyed in finally.
-  const httpAgent = new http.Agent({ keepAlive: true, timeout: 60_000 });
+  const httpAgent = new https.Agent({ keepAlive: true, timeout: 60_000 });
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, httpAgent });
 
   const founderPayload = founder as FounderPayload;
