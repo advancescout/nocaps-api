@@ -293,11 +293,6 @@ export async function runAnalysis(
         try {
           const prompt = await Promise.resolve(step.prompt(idea as IdeaData, completedSteps));
           console.log(`[step-debug] step ${stepNum} starting: ${step.name} (attempt ${attempt}/${MAX_RETRIES}, prompt: ${prompt.length} chars)`);
-          // Temporary debug: log rendered prompts for wave 5a-5d steps
-          if ([8, 9, 10, 11, 12, 13, 17].includes(stepNum) && attempt === 1) {
-            const fs = require('fs');
-            fs.appendFileSync('KAI-WAVE-FIX-RENDERED-PROMPTS.md', `\n## Step ${stepNum} — ${step.name}\n\n**Char count:** ${prompt.length}\n\n\`\`\`\n${prompt}\n\`\`\`\n\n`);
-          }
           const { content, tokensUsed } = await callClaude(prompt, step.number, anthropicClient);
           const parsedResponse = parseJsonSafe(content);
           const durationMs = Date.now() - startedAt;
