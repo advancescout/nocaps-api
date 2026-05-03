@@ -86,15 +86,31 @@ const STEPS: Array<{ number: number; name: string; prompt: PromptFn }> = [
   // Step 8: company_name (was step 7)
   { number: 8, name: 'company_name', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a brand strategist. For the business: "${idea.business_idea}" targeting "${idea.target_demographic}", with insights: ${JSON.stringify(prev.find(s => s.stepNumber === 7)?.response || {})}, generate 5 unique company name options. Each name should be: memorable, available as a domain (check common patterns), not a known existing brand, under 12 characters preferred. Return as JSON with fields: names (array of {name, rationale, domainSuggestion, memorabilityScore}), recommendedName.` },
   // Step 9: business_strategy (was step 8)
-  { number: 9, name: 'business_strategy', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a business strategist. For "${idea.business_idea}", create a strategic dos and don'ts table based on market insights: ${JSON.stringify(prev.find(s => s.stepNumber === 7)?.response || {})} and competitive landscape: ${JSON.stringify(prev.find(s => s.stepNumber === 3)?.response || {})}. Generate 6-8 dos and 6-8 don'ts. Each should be specific, actionable, and grounded in the analysis. Return as JSON with fields: dos (array of {action, rationale}), donts (array of {action, rationale}).` },
+  { number: 9, name: 'business_strategy', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a business strategist. For "${idea.business_idea}" targeting ${idea.target_demographic}, create a strategic dos and don'ts table based on market insights: ${JSON.stringify(prev.find(s => s.stepNumber === 7)?.response || {})} and competitive landscape: ${JSON.stringify(prev.find(s => s.stepNumber === 3)?.response || {})}. Generate 6-8 dos and 6-8 don'ts. Each should be specific, actionable, and grounded in the analysis. Return as JSON with fields: dos (array of {action, rationale}), donts (array of {action, rationale}).` },
   // Step 10: strategic_goals (was step 9)
-  { number: 10, name: 'strategic_goals', prompt: (idea: IdeaData) => `You are a strategic planner. For "${idea.business_idea}", define 5-7 strategic goals that are uncommon (not generic platitudes), each under 10 words. Goals should challenge conventional thinking in this industry. Also identify the primary goal. Return as JSON with fields: goals (array of {goal, timeframe, measureOfSuccess}), primaryGoal, rationale.` },
+  { number: 10, name: 'strategic_goals', prompt: (idea: IdeaData, prev: StepResult[]) => {
+    const insights = JSON.stringify(prev.find(s => s.stepNumber === 7)?.response || {});
+    const strategy = JSON.stringify(prev.find(s => s.stepNumber === 9)?.response || {});
+    const competitors = JSON.stringify(prev.find(s => s.stepNumber === 3)?.response || {});
+    return `You are a strategic planner. For "${idea.business_idea}" targeting ${idea.target_demographic}, define 5-7 strategic goals that are uncommon (not generic platitudes), each under 10 words. Goals should challenge conventional thinking in this industry. Also identify the primary goal. Goals must be consistent with the business strategy: ${strategy}, market insights: ${insights}, and competitive landscape: ${competitors}. Return as JSON with fields: goals (array of {goal, timeframe, measureOfSuccess}), primaryGoal, rationale.`;
+  }},
   // Step 11: strategic_place (was step 10)
-  { number: 11, name: 'strategic_place', prompt: (idea: IdeaData) => `You are a strategic positioning expert. For "${idea.business_idea}", define where to play across: geography (specific regions/cities to target first), customer segments (prioritized), channels (go-to-market channels ranked by potential), value chain position (where in the value chain to operate), products/services (initial offering vs future expansion). Return as JSON with fields: geography (primaryMarkets, expansionMarkets), segments (primary, secondary), channels (ranked list with rationale), valueChainPosition, products (initial, future).` },
+  { number: 11, name: 'strategic_place', prompt: (idea: IdeaData, prev: StepResult[]) => {
+    const companyName = JSON.stringify(prev.find(s => s.stepNumber === 8)?.response || {});
+    const strategy = JSON.stringify(prev.find(s => s.stepNumber === 9)?.response || {});
+    const goals = JSON.stringify(prev.find(s => s.stepNumber === 10)?.response || {});
+    return `You are a strategic positioning expert. For "${idea.business_idea}" targeting ${idea.target_demographic}, with company name context: ${companyName}, business strategy: ${strategy}, and strategic goals: ${goals}, define where to play across: geography (specific regions/cities to target first), customer segments (prioritised), channels (go-to-market channels ranked by potential), value chain position (where in the value chain to operate), products/services (initial offering vs future expansion). Return as JSON with fields: geography (primaryMarkets, expansionMarkets), segments (primary, secondary), channels (ranked list with rationale), valueChainPosition, products (initial, future).`;
+  }},
   // Step 12: strategic_activities (was step 11)
   { number: 12, name: 'strategic_activities', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a blue ocean strategist. For "${idea.business_idea}" with competitive landscape: ${JSON.stringify(prev.find(s => s.stepNumber === 3)?.response || {})}, create: 1) A Blue Ocean strategy canvas comparing your positioning vs competitors on 8-10 key factors, 2) An ERRC (Eliminate-Reduce-Raise-Create) grid. Return as JSON with fields: blueOceanCanvas (factors array of {factor, industryAverage, yourPosition}), errcGrid (eliminate, reduce, raise, create - each array of {factor, rationale}).` },
   // Step 13: business_model (was step 12)
-  { number: 13, name: 'business_model', prompt: (idea: IdeaData) => `You are a business model innovator familiar with businessmodelnavigator.com's 55 patterns. For "${idea.business_idea}", identify 2-3 relevant business model patterns from the navigator (e.g., Freemium, Platform, Subscription, etc.). Then combine them into a novel hybrid model. Return as JSON with fields: patterns (array of {name, description, whyRelevant}), hybridModel (name, description, keyMechanics), innovationRationale.` },
+  { number: 13, name: 'business_model', prompt: (idea: IdeaData, prev: StepResult[]) => {
+    const strategy = JSON.stringify(prev.find(s => s.stepNumber === 9)?.response || {});
+    const goals = JSON.stringify(prev.find(s => s.stepNumber === 10)?.response || {});
+    const place = JSON.stringify(prev.find(s => s.stepNumber === 11)?.response || {});
+    const activities = JSON.stringify(prev.find(s => s.stepNumber === 12)?.response || {});
+    return `You are a business model innovator familiar with businessmodelnavigator.com's 55 patterns. For "${idea.business_idea}" targeting ${idea.target_demographic}, identify 2-3 relevant business model patterns from the navigator (e.g., Freemium, Platform, Subscription, etc.). Then combine them into a novel hybrid model. The business model must be informed by the business strategy: ${strategy}, strategic goals: ${goals}, where-to-play positioning: ${place}, and strategic activities: ${activities}. Return as JSON with fields: patterns (array of {name, description, whyRelevant}), hybridModel (name, description, keyMechanics), innovationRationale.`;
+  }},
   // Step 14: business_model_definition (was step 13, depends on step 13)
   { number: 14, name: 'business_model_definition', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a business model architect. Define the new business model for "${idea.business_idea}" using the hybrid model: ${JSON.stringify(prev.find(s => s.stepNumber === 13)?.response || {})}. Answer: WHAT (what do we offer), WHY (why would customers pay), HOW (how do we deliver it), WHO (who are we delivering to and who delivers it). Be specific and concrete. Return as JSON with fields: what (offering description), why (value proposition, pain solved), how (delivery mechanism, key processes), who (customer profile, key partners, team needed).` },
   // Step 15: ecosystem (was step 14, depends on step 14)
@@ -102,7 +118,14 @@ const STEPS: Array<{ number: number; name: string; prompt: PromptFn }> = [
   // Step 16: assumption_test (was step 15, depends on step 14)
   { number: 16, name: 'assumption_test', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a lean startup expert. For "${idea.business_idea}" with business model: ${JSON.stringify(prev.find(s => s.stepNumber === 14)?.response || {})}, identify the single riskiest assumption that must be true for this business to work. Design a test for it. Return as JSON with fields: riskiestAssumption (statement), hypothesis (if X then Y), experiment (specific test to run), successMetric (measurable outcome), scope (time, budget, sample size), expectedLearning, pivotIfFalse.` },
   // Step 17: website_copy (was step 16)
-  { number: 17, name: 'website_copy', prompt: (idea: IdeaData) => `You are a conversion copywriter. For "${idea.business_idea}" targeting "${idea.target_demographic}", create high-converting website copy. Requirements: headline MUST be under 5 words, conversion sentence MUST be under 10 words, 3 features with clear user benefits. Return as JSON with fields: headline (max 5 words), conversionSentence (max 10 words), features (array of {title, benefit, description}), ctaButton, subheadline.` },
+  { number: 17, name: 'website_copy', prompt: (idea: IdeaData, prev: StepResult[]) => {
+    const companyName = JSON.stringify(prev.find(s => s.stepNumber === 8)?.response || {});
+    const strategy = JSON.stringify(prev.find(s => s.stepNumber === 9)?.response || {});
+    const goals = JSON.stringify(prev.find(s => s.stepNumber === 10)?.response || {});
+    const place = JSON.stringify(prev.find(s => s.stepNumber === 11)?.response || {});
+    const activities = JSON.stringify(prev.find(s => s.stepNumber === 12)?.response || {});
+    return `You are a conversion copywriter. For "${idea.business_idea}" targeting "${idea.target_demographic}", using the company name: ${companyName}, create high-converting website copy. The copy must reflect the business strategy: ${strategy}, strategic goals: ${goals}, where-to-play positioning: ${place}, and strategic activities: ${activities}. Requirements: headline MUST be under 5 words, conversion sentence MUST be under 10 words, 3 features with clear user benefits. Return as JSON with fields: headline (max 5 words), conversionSentence (max 10 words), features (array of {title, benefit, description}), ctaButton, subheadline.`;
+  }},
   // Step 18: facebook_ads (was step 17, depends on step 17)
   { number: 18, name: 'facebook_ads', prompt: (idea: IdeaData, prev: StepResult[]) => `You are a Facebook/Meta ads specialist. For "${idea.business_idea}" targeting "${idea.target_demographic}" with website copy: ${JSON.stringify(prev.find(s => s.stepNumber === 17)?.response || {})}, create 3 high-converting Facebook ad variants. Each ad must have: primary text, headline, CTA button, FOMO element, target audience specification. Vary the angle: one pain-focused, one aspiration-focused, one social proof focused. Return as JSON with fields: ads (array of {variant, primaryText, headline, ctaButton, fomoElement, targetAudience, angle}).` },
   // Step 19: nocaps_verdict (NEW) — Ships or Cooked
@@ -247,14 +270,17 @@ export async function runAnalysis(
     // Steps 2-18: Claude API calls
     // Parallel wave execution — steps within each wave run concurrently
     const STEP_WAVES: number[][] = [
-      [2, 5, 6],            // Wave 1: no deps — industry_size, industry_trends, reddit_validation
-      [3],                  // Wave 2: competitors (needs 2)
-      [4],                  // Wave 3: value_chain (needs 3)
-      [7],                  // Wave 4: insights (needs 2,3,4,5,6)
-      [8, 9, 10, 11, 12, 13, 17], // Wave 5: unblocked after insights
-      [14],                 // Wave 6: business_model_definition (needs 13)
-      [15, 16, 18],         // Wave 7: ecosystem+assumption_test (need 14), facebook_ads (needs 17)
-      [19],                 // Wave 8: nocaps_verdict (needs everything)
+      [2, 5, 6],      // Wave 1: no deps — industry_size, industry_trends, reddit_validation
+      [3],             // Wave 2: competitors (needs 2)
+      [4],             // Wave 3: value_chain (needs 3)
+      [7],             // Wave 4: insights (needs 2,3,4,5,6)
+      [8, 9],          // Wave 5a: company_name (needs 5,7), business_strategy (needs 3,7)
+      [10, 12],        // Wave 5b: strategic_goals (needs 9,7,3), strategic_activities (needs 8,3)
+      [11],            // Wave 5c: strategic_place (needs 8,9,10)
+      [13, 17],        // Wave 5d: business_model (needs 9,10,11,12), website_copy (needs 8,9,10,11,12)
+      [14],            // Wave 6: business_model_definition (needs 13)
+      [15, 16, 18],    // Wave 7: ecosystem+assumption_test (need 14), facebook_ads (needs 17)
+      [19],            // Wave 8: nocaps_verdict (needs everything)
     ];
 
     const executeStep = async (stepNum: number): Promise<void> => {
@@ -267,6 +293,11 @@ export async function runAnalysis(
         try {
           const prompt = await Promise.resolve(step.prompt(idea as IdeaData, completedSteps));
           console.log(`[step-debug] step ${stepNum} starting: ${step.name} (attempt ${attempt}/${MAX_RETRIES}, prompt: ${prompt.length} chars)`);
+          // Temporary debug: log rendered prompts for wave 5a-5d steps
+          if ([8, 9, 10, 11, 12, 13, 17].includes(stepNum) && attempt === 1) {
+            const fs = require('fs');
+            fs.appendFileSync('KAI-WAVE-FIX-RENDERED-PROMPTS.md', `\n## Step ${stepNum} — ${step.name}\n\n**Char count:** ${prompt.length}\n\n\`\`\`\n${prompt}\n\`\`\`\n\n`);
+          }
           const { content, tokensUsed } = await callClaude(prompt, step.number, anthropicClient);
           const parsedResponse = parseJsonSafe(content);
           const durationMs = Date.now() - startedAt;
